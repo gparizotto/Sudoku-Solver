@@ -6,42 +6,15 @@ from time import sleep
 
 p.init()
 
-
 class Sudoku:
-    def __init__(self):
+    def __init__(self, window):
         self.size = 9
-        self.board = np.full((9, 9), 0, object)
-    # generate principal diagonal's squares with random numbers 1-9
-
-    def generate_diagonal_squares(self):
-        repeated = []
-        for row in range(3):
-            for column in range(3):
-                number = random.randint(1, 9)
-                while repeated.count(number) > 0:
-                    number = random.randint(1, 9)
-                self.board[row][column] = number
-                repeated.append(number)
-        repeated.clear()
-        for row in range(3, 6):
-            for column in range(3, 6):
-                number = random.randint(1, 9)
-                while repeated.count(number) > 0:
-                    number = random.randint(1, 9)
-                self.board[row][column] = number
-                repeated.append(number)
-        repeated.clear()
-        for row in range(6, 9):
-            for column in range(6, 9):
-                number = random.randint(1, 9)
-                while repeated.count(number) > 0:
-                    number = random.randint(1, 9)
-                self.board[row][column] = number
-                repeated.append(number)
+        self.board = np.full((self.size, self.size), 0, object)
 
     # return a list containing which numbers 1-9 can be placed in a position
     def possible_options(self, row, column):
         numbers = [1, 2, 3, 4, 5, 6, 7, 8, 9]
+        random.shuffle(numbers)
         add_x = add_y = 0
         for i in range(9):
             if numbers.count(self.board[row][i]) > 0:
@@ -70,33 +43,43 @@ class Sudoku:
 
         return numbers
 
-    # generate the rest of the squares placing possible numbers in random positions
-    # of the square, and removing random elements from principal diagonal's squares
-    def generate_rest_of_squares(self):
-        for i in range(9):
-            if 0 <= i < 3:
-                add1 = 1
-                add2 = 2
-                remove = 0
-            if 3 <= i < 6:
-                add1 = 0
-                add2 = 2
-                remove = 1
-            if 6 <= i < 9:
-                add1 = 0
-                add2 = 1
-                remove = 2
-            row = random.randint(0, 2) + add1 * 3
-            self.board[row][i] = self.possible_options(row, i)[0]
-            row = random.randint(0, 2) + add2 * 3
-            self.board[row][i] = self.possible_options(row, i)[0]
+    def solution(self, row, column):
+        if row == 8 and column == 9:
+            return True
 
-            column = random.randint(0, 2) + remove * 3
-            self.board[i][column] = 0
+        if column == 9:
+            row = row + 1
+            column = 0    
 
-    def generate(self):
-        self.generate_diagonal_squares()
-        self.generate_rest_of_squares()
+        if window.user_board[row][column] == -1:
+            return self.solution(row, column + 1)  
+
+        numbers = self.possible_options(row, column)
+        while len(numbers) > 0:
+            self.board[row][column] = numbers[len(numbers) - 1]
+            window.user_board[row][column] = -1
+            if self.solution(row, column + 1):
+                return True
+            numbers.pop()   
+            self.board[row][column] = 0
+            window.user_board[row][column] = 0
+
+        return False              
+
+    def remove_elements(self):
+        remove = random.randint(30, 40)   
+        remove = 40
+        removed_list = []
+        while remove:
+            removed = random.randint(0, 80)
+            while len(removed_list) and removed_list.count(removed) > 0:
+                removed = random.randint(0, 80)
+            row = removed // 9
+            column = removed % 9
+            self.board[row][column] = 0
+            remove -= 1
+            removed_list.append(removed)
+
 
 class Button:
     def __init__(self, window, x, y, border, color, background, coord):
@@ -121,14 +104,14 @@ class Button:
     def draw_numbers(self):
         if window.board[self.i][self.j]:
             if window.user_board[self.i][self.j] != -1:
-                self.background = "dark green" 
+                self.background = "dark green"
             text = str(window.board[self.i][self.j])
             self.text_surf = window.font.render(
                 text, True, self.background, self.color)
             self.text_rect = self.text_surf.get_rect(
                 center=window.buttons[self.i][self.j].rect.center)
             window.screen.blit(self.text_surf, self.text_rect)
-            self.background = "black"   
+            self.background = "black"
 
     def check_mouse(self):
         mouse_pos = p.mouse.get_pos()
@@ -151,7 +134,7 @@ class Window:
         self.clock = p.time.Clock()
 
         self.buttons = []
-        self.sudoku = Sudoku()
+        self.sudoku = Sudoku(self)
 
         self.board = np.full((9, 9), 0, object)
         self.user_board = np.full((9, 9), 0, object)
@@ -161,7 +144,9 @@ class Window:
         self.selected = False
 
     def initialize(self):
-        self.sudoku.generate()
+        self.sudoku.solution(0,0)
+        self.sudoku.remove_elements()
+
 
         for i in range(9):
             row = []
@@ -171,7 +156,10 @@ class Window:
                 self.board[i][j] = self.sudoku.board[i][j]
                 if self.sudoku.board[i][j]:
                     self.user_board[i][j] = -1
-            self.buttons.append(row)
+                else:
+                    self.user_board[i][j] = 0    
+                    print(self.user_board)
+            self.buttons.append(row) 
 
     def check_key(self, event):
         if event == p.K_1:
@@ -229,7 +217,7 @@ class Window:
                 if event.type == p.KEYDOWN:
                     self.mouse_pressed = True
                     self.check_key(event.key)
-            
+
             self.screen.fill("white")
 
             for i in range(9):
