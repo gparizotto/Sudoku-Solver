@@ -10,9 +10,7 @@ p.init()
 class Sudoku:
     def __init__(self, window):
         self.size = 9
-        self.board = np.full((self.size, self.size), 0, object)
-        self.solution_board = np.full((self.size, self.size), 0, object)
-        self.speed = 0.1
+        self.speed = 0.15
 
     # return a list containing which numbers 1-9 can be placed in a position
     def possible_options(self, row, column):
@@ -54,7 +52,7 @@ class Sudoku:
             row = row + 1
             column = 0
 
-        if window.user_board[row][column] == -1:
+        if window.user_board_copy[row][column] == -1:
             return self.solution(row, column + 1)
 
         numbers = self.possible_options(row, column)
@@ -62,18 +60,17 @@ class Sudoku:
             if window.thread.is_alive():
                 sleep(self.speed)
             window.board[row][column] = numbers[len(numbers) - 1]
-            window.user_board[row][column] = -1
+            window.user_board_copy[row][column] = -1
             if self.solution(row, column + 1):
                 return True
             numbers.pop()
             window.board[row][column] = 0
-            window.user_board[row][column] = 0
+            window.user_board_copy[row][column] = 0
 
         return False
 
     def remove_elements(self):
         remove = random.randint(30, 40)
-        remove = 40
         removed_list = []
         while remove:
             removed = random.randint(0, 80)
@@ -87,7 +84,7 @@ class Sudoku:
 
 
 class Cell:
-    def __init__(self, window, x, y, width, height, border, color, background, coord):
+    def __init__(self, window, x, y, width, height, border, color, text_color,background, coord):
         self.x = x
         self.y = y
         self.width = width
@@ -95,11 +92,13 @@ class Cell:
         self.i = coord[0]
         self.j = coord[1]
         self.border = border
-        self.color = color
-        self.background = background
+        self.text_color = text_color
+        self.color = color # grey
+        self.background = background # black
         self.rect = p.Rect(self.x, self.y, self.width, self.height)
         self.text_surf = 0
         self.text_rect = 0
+
 
     def draw_rectangle(self):
         self.rect = p.Rect(self.x, self.y, self.width, self.height)
@@ -110,32 +109,19 @@ class Cell:
 
     def draw_numbers(self):
         if window.board[self.i][self.j]:
-            if window.user_board[self.i][self.j] != -1:
-                self.background = "dark green"
             text = str(window.board[self.i][self.j])
             self.text_surf = window.font.render(
-                text, True, self.background, self.color)
+                text, True, self.text_color, self.color)
             self.text_rect = self.text_surf.get_rect(
-                center=window.buttons[self.i][self.j].rect.center)
+                center=window.cells[self.i][self.j].rect.center)
             window.screen.blit(self.text_surf, self.text_rect)
-            self.background = "black"
-
-    def check_mouse(self):
-        mouse_pos = p.mouse.get_pos()
-
-        if window.buttons[self.i][self.j].rect.collidepoint(mouse_pos):
-            window.buttons[self.i][self.j].color = "grey"
-            if window.mouse_pressed and window.user_board[self.i][self.j] != -1:
-                window.board[self.i][self.j] = window.key_placed
-        else:
-            window.buttons[self.i][self.j].color = "white"
 
 
 class Button:
     def __init__(self, screen, text, x, y, width, height, color, background, border):
         self.screen = screen
         self.text = text
-        self.font = p.font.Font(None, 45)
+        self.font = p.font.Font(None, 30)
         self.x = x
         self.y = y
         self.width = width
@@ -148,26 +134,13 @@ class Button:
 
         self.background_rect = p.Rect(self.x, self.y, self.width, self.height)
 
-    def check_mouse(self, pressed):
-        mouse_pos = p.mouse.get_pos()
-        if self.background_rect.collidepoint(mouse_pos):
-            if pressed:
-                self.pressed = True
-            else:
-                self.background = "green"    
-                self.pressed = False
-        else:
-            self.background = "grey"
-            self.pressed = False    
-
-    def draw(self, pressed):
-        self.check_mouse(pressed)
-
+    def draw(self):
         self.text_surf = self.font.render(
-            self.text, True, self.color, self.background)
+            self.text, True, "black", self.background)
 
         self.border_rect = p.Rect(
             self.x - self.border, self.y - self.border, self.width + 2*self.border, self.height + 2*self.border)
+
 
         self.text_rect = self.text_surf.get_rect(
             center=self.background_rect.center)
@@ -186,27 +159,8 @@ class Label():
         self.color = color
         self.rect = p.Rect(self.x, self.y, self.width, self.height)
 
-        self.button_width = 150
-        self.button_height = 80
-        self.button_color = "black"
-        self.button_background = "grey"
-
-        self.pressed = False
-
-        self.clear = Button(window.screen, "Clear", 22, 10,
-                            self.button_width, self.button_height, self.button_color, self.button_background, 3)
-
-        self.solve = Button(window.screen, "Solve", 194, 10,
-                            self.button_width, self.button_height, self.button_color, self.button_background, 3)
-
-        self.check = Button(window.screen, "Check", 366, 10,
-                            self.button_width, self.button_height, self.button_color, self.button_background, 3)
-
     def draw(self):
         p.draw.rect(window.screen, self.color, self.rect)
-        self.clear.draw(self.pressed)
-        self.solve.draw(self.pressed)
-        self.check.draw(self.pressed)
 
 
 class Window:
@@ -218,6 +172,7 @@ class Window:
         self.font = p.font.Font(None, 45)
         self.clock = p.time.Clock()
 
+        self.cells = []
         self.buttons = []
         self.sudoku = Sudoku(self)
 
@@ -225,32 +180,66 @@ class Window:
         self.board_height = 540
         self.pos = 100
 
+        self.board_copy = np.full((9, 9), 0, object)
+        self.user_board_copy = np.full((9, 9), 0, object)
         self.board = np.full((9, 9), 0, object)
         self.user_board = np.full((9, 9), 0, object)
+        self.solution_board = np.full((9, 9), 0, object)
+
         self.key_placed = 0
-
+        self.size = 9
         self.mouse_pressed = False
+        self.keyboard_pressed = False
 
-        self.thread = threading.Thread(target=self.sudoku.solution, args=(0, 0, ))
+        self.border = 1
+
+        self.checking = False
 
         self.top_label = Label(self, 0, 0, self.width,
                                self.height - self.board_height, "dark green")
 
+        self.thread = threading.Thread(
+            target=self.sudoku.solution, args=(0, 0, ))
+
+
     def initialize(self):
+        self.board = np.full((9, 9), 0, object)
+        self.user_board_copy = np.full((9, 9), 0, object)
+        self.user_board = np.full((9, 9), 0, object)
         self.sudoku.solution(0, 0)
-        self.sudoku.solution_board = self.board.copy()
-        self.sudoku.remove_elements()  
+        self.solution_board = self.board.copy()
+        print(self.solution_board)
+        self.sudoku.remove_elements()
 
         for i in range(9):
             row = []
             for j in range(9):
                 row.append(Cell(self, j * (self.board_width / 9), i *
-                           (self.board_height / 9) + self.pos, self.board_width / 9, self.board_height / 9, 1, "white", "black", (i, j)))
+                           (self.board_height / 9) + self.pos, self.board_width / 9, self.board_height / 9, self.border, "white", "black", "black", (i, j)))
                 if self.board[i][j]:
                     self.user_board[i][j] = -1
                 else:
                     self.user_board[i][j] = 0
-            self.buttons.append(row)
+
+            self.board_copy = self.board.copy()
+            self.user_board_copy = self.user_board.copy()
+
+            self.cells.append(row)
+
+        self.buttons.append(Button(window.screen, "Clear",
+                            8, 10, 125, 80, "grey", "black", 3))
+
+        self.buttons.append(Button(window.screen, "Check",
+                            141, 10, 125, 80, "grey", "black", 3))
+
+        self.buttons.append(Button(window.screen, "Solve",
+                            274, 10, 125, 80, "grey", "black", 3))
+
+        self.buttons.append(Button(window.screen, "New Board",
+                            407, 10, 125, 80, "grey", "black", 3)) 
+
+        print(self.board)
+        print(self.user_board)                                       
 
 
     def check_key(self, event):
@@ -274,6 +263,51 @@ class Window:
             self.key_placed = 9
         else:
             self.key_placed = 0
+
+    def check_input(self):
+        mouse_pos = p.mouse.get_pos()
+        for row in range(self.size):
+            for column in range(self.size):
+                if self.cells[row][column].rect.collidepoint(mouse_pos):
+                    self.cells[row][column].color = "grey"
+                    if self.keyboard_pressed and self.user_board[row][column] != -1:
+                        self.checking = False
+                        self.board[row][column] = self.key_placed
+                        self.cells[row][column].text_color = "dark green"
+                else:
+                    self.cells[row][column].color = "white"
+
+        for button in self.buttons:
+            if button.background_rect.collidepoint(mouse_pos):
+                if self.mouse_pressed:
+                    self.checking = False
+                    button.pressed = True
+                else:
+                    button.background = "green"
+                    button.pressed = False
+            else:
+                button.background = "grey"
+                button.pressed = False 
+
+        if self.buttons[0].pressed:
+            self.clear()
+
+        elif self.buttons[1].pressed:
+            self.check()
+
+        elif self.buttons[2].pressed:
+            if not self.thread.is_alive():
+                self.thread = threading.Thread(
+                    target=self.sudoku.solution, args=(0, 0, ))
+                self.thread.start()
+            else:
+                self.board = self.board_copy.copy()
+                self.sudoku.speed = 0
+                sleep(0.2)
+                self.sudoku.speed = 0.15
+        elif self.buttons[3].pressed:
+            self.initialize()   
+
 
     def draw_lines(self):
         rect = p.Rect(0, self.pos, 4, self.board_height)
@@ -301,18 +335,31 @@ class Window:
         p.draw.rect(self.screen, "black", rect)
 
     def clear(self):
-        for row in range(9):
-            for column in range(9):
-                if self.user_board[row][column] == 0:
-                    self.board[row][column] = 0
+        self.board = self.board_copy.copy()
+
 
     def check(self):
+        self.checking = True
         for row in range(9):
             for column in range(9):
-                if self.board[row][column] != self.sudoku.solution_board[row][column]:
-                    print("not solution")  
-                    return
-        print("solution")             
+                if self.user_board_copy[row][column] != -1 and self.board[row][column] != 0:
+                    if self.board[row][column] != self.solution_board[row][column]:
+                        self.cells[row][column].text_color = "red"
+                    else:
+                        self.cells[row][column].text_color = "green"
+                else:
+                    self.cells[row][column].text_color = "black"        
+
+    def draw(self):
+        for i in range(9):
+                for j in range(9):
+                    if self.user_board[i][j] == -1: self.cells[i][j].text_color = "black"
+                    self.cells[i][j].draw_rectangle()
+                    self.cells[i][j].draw_numbers()            
+        self.draw_lines()            
+        self.top_label.draw()
+        for i in range(4):
+            self.buttons[i].draw()
 
     def run(self):
         while True:
@@ -321,44 +368,22 @@ class Window:
                     p.quit()
                     exit()
                 if event.type == p.MOUSEBUTTONDOWN:
-                    self.top_label.pressed = True
-                if event.type == p.KEYDOWN:
                     self.mouse_pressed = True
+                if event.type == p.KEYDOWN:
+                    self.keyboard_pressed = True
                     self.check_key(event.key)
 
             self.screen.fill("white")
 
-            for i in range(9):
-                for j in range(9):
-                    self.buttons[i][j].check_mouse()
-                    self.buttons[i][j].draw_rectangle()
-                    self.buttons[i][j].draw_numbers()
+            self.check_input()  
 
-            self.top_label.draw()
-            self.draw_lines()
+            self.draw()
 
-            if self.top_label.pressed:
-                if self.top_label.clear.pressed:
-                    self.clear()
-
-                elif self.top_label.check.pressed:
-                    self.check()
-
-                elif self.top_label.solve.pressed:
-                    if not self.thread.is_alive():
-                        self.thread = threading.Thread(target=self.sudoku.solution, args=(0, 0, ))
-                        self.thread.start() 
-                    else:
-                        self.sudoku.speed = 0    
-                        sleep(0.1)
-                        self.board = self.sudoku.solution_board.copy()
-                        self.sudoku.speed = 0.1
-
-
+            self.keyboard_pressed = False
             self.mouse_pressed = False
-            self.top_label.pressed = False
+
             p.display.update()
-            
+
 
 window = Window(540, 640)
 window.initialize()
