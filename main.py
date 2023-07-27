@@ -7,6 +7,7 @@ import threading
 
 p.init()
 
+
 class Sudoku:
     def __init__(self, window):
         self.size = 9
@@ -84,7 +85,7 @@ class Sudoku:
 
 
 class Cell:
-    def __init__(self, window, x, y, width, height, border, color, text_color,background, coord):
+    def __init__(self, window, x, y, width, height, border, color, text_color, background, coord):
         self.x = x
         self.y = y
         self.width = width
@@ -93,12 +94,11 @@ class Cell:
         self.j = coord[1]
         self.border = border
         self.text_color = text_color
-        self.color = color # grey
-        self.background = background # black
+        self.color = color  # grey
+        self.background = background  # black
         self.rect = p.Rect(self.x, self.y, self.width, self.height)
         self.text_surf = 0
         self.text_rect = 0
-
 
     def draw_rectangle(self):
         self.rect = p.Rect(self.x, self.y, self.width, self.height)
@@ -140,7 +140,6 @@ class Button:
 
         self.border_rect = p.Rect(
             self.x - self.border, self.y - self.border, self.width + 2*self.border, self.height + 2*self.border)
-
 
         self.text_rect = self.text_surf.get_rect(
             center=self.background_rect.center)
@@ -201,14 +200,12 @@ class Window:
         self.thread = threading.Thread(
             target=self.sudoku.solution, args=(0, 0, ))
 
-
     def initialize(self):
         self.board = np.full((9, 9), 0, object)
         self.user_board_copy = np.full((9, 9), 0, object)
         self.user_board = np.full((9, 9), 0, object)
         self.sudoku.solution(0, 0)
         self.solution_board = self.board.copy()
-        print(self.solution_board)
         self.sudoku.remove_elements()
 
         for i in range(9):
@@ -226,6 +223,9 @@ class Window:
 
             self.cells.append(row)
 
+
+        #self.sudoku.solution(0, 0)
+
         self.buttons.append(Button(window.screen, "Clear",
                             8, 10, 125, 80, "grey", "black", 3))
 
@@ -236,11 +236,7 @@ class Window:
                             274, 10, 125, 80, "grey", "black", 3))
 
         self.buttons.append(Button(window.screen, "New Board",
-                            407, 10, 125, 80, "grey", "black", 3)) 
-
-        print(self.board)
-        print(self.user_board)                                       
-
+                            407, 10, 125, 80, "grey", "black", 3))
 
     def check_key(self, event):
         if event == p.K_1:
@@ -287,7 +283,7 @@ class Window:
                     button.pressed = False
             else:
                 button.background = "grey"
-                button.pressed = False 
+                button.pressed = False
 
         if self.buttons[0].pressed:
             self.clear()
@@ -296,7 +292,15 @@ class Window:
             self.check()
 
         elif self.buttons[2].pressed:
-            if not self.thread.is_alive():
+
+            self.board = self.solution_board.copy()
+
+            for row in range(self.size):
+                for column in range(self.size):
+                    self.cells[row][column].text_color = "black"
+                    
+            
+            '''if not self.thread.is_alive():
                 self.thread = threading.Thread(
                     target=self.sudoku.solution, args=(0, 0, ))
                 self.thread.start()
@@ -304,10 +308,9 @@ class Window:
                 self.board = self.board_copy.copy()
                 self.sudoku.speed = 0
                 sleep(0.2)
-                self.sudoku.speed = 0.15
+                self.sudoku.speed = 0.15 '''
         elif self.buttons[3].pressed:
-            self.initialize()   
-
+            self.initialize()
 
     def draw_lines(self):
         rect = p.Rect(0, self.pos, 4, self.board_height)
@@ -337,7 +340,6 @@ class Window:
     def clear(self):
         self.board = self.board_copy.copy()
 
-
     def check(self):
         self.checking = True
         for row in range(9):
@@ -348,15 +350,16 @@ class Window:
                     else:
                         self.cells[row][column].text_color = "green"
                 else:
-                    self.cells[row][column].text_color = "black"        
+                    self.cells[row][column].text_color = "black"
 
     def draw(self):
         for i in range(9):
-                for j in range(9):
-                    if self.user_board[i][j] == -1: self.cells[i][j].text_color = "black"
-                    self.cells[i][j].draw_rectangle()
-                    self.cells[i][j].draw_numbers()            
-        self.draw_lines()            
+            for j in range(9):
+                if self.user_board[i][j] == -1:
+                    self.cells[i][j].text_color = "black"
+                self.cells[i][j].draw_rectangle()
+                self.cells[i][j].draw_numbers()
+        self.draw_lines()
         self.top_label.draw()
         for i in range(4):
             self.buttons[i].draw()
@@ -375,7 +378,7 @@ class Window:
 
             self.screen.fill("white")
 
-            self.check_input()  
+            self.check_input()
 
             self.draw()
 
